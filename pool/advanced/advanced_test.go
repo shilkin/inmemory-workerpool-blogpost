@@ -21,6 +21,9 @@ func TestStaticPool(t *testing.T) {
 		size := 10
 		pool := static.NewPool(size)
 
+		// give it a time to start before stopping
+		time.Sleep(5 * time.Millisecond)
+
 		var taskExecuted atomic.Int32
 
 		for i := 0; i < size; i++ {
@@ -61,6 +64,9 @@ func TestWaitablePool(t *testing.T) {
 	size := 10
 	pool := waitable.NewPool(size)
 
+	// give it a time to start before stopping
+	time.Sleep(5 * time.Millisecond)
+
 	var taskExecuted atomic.Int32
 
 	for i := 0; i < size; i++ {
@@ -75,7 +81,7 @@ func TestWaitablePool(t *testing.T) {
 	// we are waiting for each task to be done
 	// so the actual number of executed tasks
 	// must be equal to the number of scheduled tasks
-	require.Equal(t, int(taskExecuted.Load()), size)
+	require.Equal(t, size, int(taskExecuted.Load()))
 }
 
 func TestTimeoutPool(t *testing.T) {
