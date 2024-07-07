@@ -25,3 +25,22 @@ test: ## Run tests
 	@echo "+ $@"
 	go test ./... -race
 .PHONY: lint
+
+example-start: ## Start example of goroutine leak
+	docker-compose up -d --remove-orphans
+.PHONY: example-start
+
+example-stop: ## Stop example of goroutine leak
+	docker-compose down --remove-orphans
+.PHONY: example-stop
+
+example-refresh: ## Build and start example of goroutine leak
+	docker-compose up -d --build
+.PHONY: example-refresh
+
+example-load:  ## Build and start example loadgen
+	docker-compose up -d loadgen --build
+.PHONY: example-load
+
+example-restart: example-stop example-start ## Restart example of goroutine leak
+.PHONY: example-restart
