@@ -1,0 +1,67 @@
+services:
+  webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: webserver
+    environment:
+      INFLUXDB_HOST: "influxdb:8086"
+      PYROSCOPE_HOST: "http://pyroscope:4040"
+    ports:
+      - "8080:8080"
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+        test: curl -f http://localhost:8080/ping || exit 1
+        interval: 1s
+        timeout: 1s
+        retries: 30
+    memswap_limit: 50M
+    deploy:
+      resources:
+        limits:
+          memory: 50M
+    restart: on-failure
+
+  loadgen:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: loadgen
+    depends_on:
+      webserver:
+        condition: service_healthy
+    command: "/app/loadgen -c 3 -i 10ms -t http://webserver:8080/create?delay=60s"
+    restart: always
+
+  influxdb:
+    image: influxdb:1.8
+    ports:
+      - "8086:8086"
+    healthcheck:
+      test: curl -f http://localhost:8086/ping || exit 1
+      interval: 3s
+      timeout: 10s
+      retries: 30
+
+  grafana:
+    image: grafana/grafana:8.1.7
+    environment:
+      GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+      GF_AUTH_DISABLE_SIGNOUT_MENU: "true"
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+
+  pyroscope:
+    image: grafana/pyroscope:1.6.1
+    deploy:
+      restart_policy:
+        condition: on-failure
+    ports:
+      - "4040:4040"

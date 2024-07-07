@@ -1,0 +1,130 @@
+# https://golangci-lint.run/usage/configuration/#config-file
+run:
+  allow-parallel-runners: true
+  timeout: 3m
+  build-tags:
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  misspell:
+    locale: US
+    ignore-words:
+      - opentracing
+  funlen:
+    lines: 60
+    statements: 40
+  govet:
+    check-shadowing: true
+    enable-all: true
+    disable:
+      - fieldalignment
+  golint:
+    min-confidence: 0.8
+  gofmt:
+    simplify: true
+  gocyclo:
+    min-complexity: 10
+  maligned:
+    suggest-new: true
+  goimports:
+    local-prefixes: github.com/shilkin
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/shilkin)
+      - prefix(github.com/gtforge/inmemory-workerpool-blogpost)
+  dupl:
+    threshold: 100
+  lll:
+    line-length: 140
+    tab-width: 4
+  unused:
+    check-exported: true
+  nakedret:
+    max-func-lines: 30
+  prealloc:
+    simple: true
+    range-loops: true
+    for-loops: false
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+      - experimental
+      - opinionated
+# https://golangci-lint.run/usage/linters/
+linters:
+  disable-all: true
+  enable:
+    - asciicheck
+    - errcheck
+    - govet
+    - exportloopref
+    - ineffassign
+    - gocritic
+    - gosec
+    - staticcheck
+    - bodyclose
+    - rowserrcheck
+    - bidichk
+    - contextcheck
+    - durationcheck
+    - errchkjson
+    - errorlint
+    - exhaustive
+    - sqlclosecheck
+    - noctx
+    - nilerr
+    - makezero
+    - prealloc
+    - gocognit
+    - goconst
+    - nakedret
+    - gocyclo
+    - funlen
+    - gosimple
+    - misspell
+    - gofmt
+    - goimports
+    - maintidx
+    - cyclop
+    - lll
+    - dogsled
+    - dupl
+    - gochecknoinits
+    - revive
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - whitespace
+    - gofumpt
+    - wsl
+    - goprintffuncname
+    - nolintlint
+    - nestif
+    - gomodguard
+    - gomoddirectives
+    - wastedassign
+    - tparallel
+    - thelper
+    - promlinter
+    - predeclared
+    - importas
+    - goheader
+    - gci
+    - containedctx
+    - decorder
+    - errname
+    - forbidigo
+    - forcetypeassert
+    - tenv
+    - nlreturn
+    - nilnil
+    - grouper
+  fast: false
+issues:
+  exclude-rules:

@@ -1,0 +1,22 @@
+apiVersion: 1
+
+datasources:
+
+  - name: influxdb
+    type: influxdb
+    isDefault: true
+    access: proxy
+    database: stats
+    url: http://influxdb:8086
+
+  - name: pyroscope
+    type: phlare
+    basicAuth: false
+    editable: true
+    access: proxy
+    uid: phlare
+    url: http://pyroscope:4040
+    version: 1
+    jsonData:
+      minStep: '15s'
+      backendType: 'pyroscope'
