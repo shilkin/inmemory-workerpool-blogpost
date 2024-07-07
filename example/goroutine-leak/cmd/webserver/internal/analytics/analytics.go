@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/shilkin/inmemory-workerpool-blogpost/example/cmd/webserver/internal/delay"
+	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/delay"
 )
 
 type Analytics struct{}

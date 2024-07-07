@@ -10,10 +10,10 @@ import (
 	pyroscope "github.com/grafana/pyroscope-go"
 	metrics "github.com/tevjef/go-runtime-metrics"
 
-	"github.com/shilkin/inmemory-workerpool-blogpost/example/cmd/webserver/internal/analytics"
-	"github.com/shilkin/inmemory-workerpool-blogpost/example/cmd/webserver/internal/delay"
-	"github.com/shilkin/inmemory-workerpool-blogpost/example/cmd/webserver/internal/repo"
-	"github.com/shilkin/inmemory-workerpool-blogpost/example/cmd/webserver/internal/service"
+	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/analytics"
+	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/delay"
+	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/repo"
+	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/service"
 )
 
 func main() {
