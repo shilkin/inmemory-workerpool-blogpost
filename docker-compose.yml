@@ -32,7 +32,7 @@ services:
     depends_on:
       webserver:
         condition: service_healthy
-    command: "/app/loadgen -c 3 -i 10ms -t http://webserver:8080/create?delay=60s"
+    command: "/app/loadgen -c 3 -i 10ms -t http://webserver:8080/create?delay=10ms"
     restart: always
 
   influxdb:

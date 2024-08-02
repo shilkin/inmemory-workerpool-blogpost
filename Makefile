@@ -44,3 +44,7 @@ example-load:  ## Build and start example loadgen
 
 example-restart: example-stop example-start ## Restart example of goroutine leak
 .PHONY: example-restart
+
+help:
+	@echo "$$(grep -hE '^\S+:.*##' $(MAKEFILE_LIST) | sed -e 's/:.*##\s*/:/' | column -c2 -t -s :)"
+.PHONY: help

@@ -16,7 +16,52 @@ import (
 	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/service"
 )
 
+// main starts a web server with two endpoints:
+// (1) /ping returns "pong"
+// (2) /create creates a user with a given delay for testing.
 func main() {
+	stopObservability := startObservability()
+	defer stopObservability()
+
+	userService := service.NewUserService(
+		repo.NewUserRepo(),
+		analytics.NewAnalytics(),
+	)
+
+	server := http.DefaultServeMux
+
+	server.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("pong"))
+	})
+
+	server.HandleFunc("/create", func(w http.ResponseWriter, r *http.Request) {
+		q := r.URL.Query()
+		name := "John Doe"
+		email := "john.doe@example.com"
+		d, err := time.ParseDuration(q.Get("delay")) // for testing
+		if err != nil {
+			println(err.Error())
+		}
+
+		fmt.Printf("create %v\n", q)
+
+		ctx := delay.ToContext(r.Context(), d) // for testing
+
+		if err := userService.Create(ctx, name, email); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	})
+
+	_ = http.ListenAndServe(":8080", server)
+}
+
+// startObservability starts observability tools
+// and returns a function to stop them.
+//
+// (1) Start collecting runtime metrics.
+// (2) Start profiling the application with Pyroscope.
+func startObservability() func() {
 	metrics.DefaultConfig.CollectionInterval = time.Second
 	metrics.DefaultConfig.BatchInterval = time.Second
 	metrics.DefaultConfig.Measurement = "go.runtime.webserver"
@@ -48,37 +93,5 @@ func main() {
 		panic("start pyroscope " + err.Error())
 	}
 
-	defer func() { _ = profiler.Stop() }()
-
-	userService := service.NewUserService(
-		repo.NewUserRepo(),
-		analytics.NewAnalytics(),
-	)
-
-	server := http.DefaultServeMux
-
-	server.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("pong"))
-	})
-
-	server.HandleFunc("/create", func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query()
-		name := "John Doe"
-		email := "john.doe@example.com"
-		d, err := time.ParseDuration(q.Get("delay"))
-		if err != nil {
-			println(err.Error())
-		}
-
-		fmt.Printf("create %v\n", q)
-
-		ctx := delay.ToContext(r.Context(), d)
-
-		if err := userService.Create(ctx, name, email); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	})
-
-	_ = http.ListenAndServe(":8080", server)
+	return func() { _ = profiler.Stop() }
 }

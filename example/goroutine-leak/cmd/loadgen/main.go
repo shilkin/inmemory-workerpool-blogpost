@@ -44,7 +44,10 @@ func main() {
 				case <-ticker.C:
 					if _, err := client.Get(url); err != nil {
 						fmt.Printf("error: %s\n", err)
+						continue
 					}
+
+					fmt.Printf("request to %s done\n", url)
 				}
 			}
 		}()

@@ -23,11 +23,9 @@ func (s *UserService) Create(ctx context.Context, name, email string) error {
 	// create user in the database
 	userID, _ := s.repo.Create(ctx, name, email)
 
-	ctx = context.WithoutCancel(ctx)
-
-	// send analytics event synchronously
-	// which may cause goroutine and memory leak
-	go s.analytics.Send(ctx, "user created", userID)
+	// send analytics event
+	// auxiliary logic that may work slowly
+	s.analytics.Send(ctx, "user created", userID)
 
 	return nil
 }
