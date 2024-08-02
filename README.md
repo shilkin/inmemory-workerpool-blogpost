@@ -2,6 +2,11 @@
 ## Introduction
 This is a clean project for exploring online in-memory task processing.
 
+# Clonning
+```sh
+git clone -b lab-mikhail git@github.com:shilkin/inmemory-workerpool-blogpost.git
+```
+
 ## Makefile commands
 ```sh
 $ make help
