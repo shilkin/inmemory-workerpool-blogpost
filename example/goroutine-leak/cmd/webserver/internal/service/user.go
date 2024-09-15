@@ -6,13 +6,13 @@ import (
 	"time"
 )
 
-type WorkerPool interface {
-	// Enqueue enqueues new task
-	Enqueue(ctx context.Context, task func(ctx context.Context)) error
+// type WorkerPool interface {
+// 	// Enqueue enqueues new task
+// 	Enqueue(ctx context.Context, task func(ctx context.Context)) error
 
-	// Stop gracefully stops the pool
-	// Stop(/*ctx?*/)
-}
+// 	// Stop gracefully stops the pool
+// 	// Stop(/*ctx?*/)
+// }
 
 type UserRepository interface {
 	Create(ctx context.Context, name, email string) (string, error)
