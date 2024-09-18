@@ -16,5 +16,10 @@ func NewAnalytics() *Analytics {
 func (_ *Analytics) Send(ctx context.Context, message string, args ...string) {
 	d := delay.FromContext(ctx)
 	println("Analytics.Send " + d.String())
-	<-time.After(d)
+
+	select {
+	case <-ctx.Done():
+		println("Analytics.Send timeout")
+	case <-time.After(d):
+	}
 }
