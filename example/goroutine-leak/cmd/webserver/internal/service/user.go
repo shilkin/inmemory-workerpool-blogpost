@@ -3,30 +3,44 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
+	"time"
 )
 
-type Task func(ctx context.Context)
+type Task func(poolCtx, taskCtx context.Context)
 
 type Pool struct {
 	tasks  chan func()
 	stop   atomic.Bool
 	stopCh chan struct{}
+	wg     sync.WaitGroup
+
+	poolCtx context.Context
+	cancel  context.CancelFunc
 }
 
 func NewPool(count int) *Pool {
+	poolCtx, cancel := context.WithCancel(context.Background())
+
 	pool := &Pool{
-		tasks:  make(chan func(), count),
-		stop:   atomic.Bool{},
-		stopCh: make(chan struct{}),
+		tasks:   make(chan func(), count),
+		stop:    atomic.Bool{},
+		stopCh:  make(chan struct{}),
+		poolCtx: poolCtx,
+		cancel:  cancel,
 	}
+
+	pool.wg.Add(count) // counter+=100
 
 	for i := 0; i < count; i++ {
 		go func() {
+			defer pool.wg.Done() // counter--
+
 			for {
 				select {
 				case task := <-pool.tasks:
-					task()
+					task() // blocking call
 				case <-pool.stopCh:
 					return
 				}
@@ -42,18 +56,40 @@ func (p *Pool) Enqueue(ctx context.Context, task Task) error {
 		return errors.New("Pool is stopping") // ErrPoolIsStopping
 	}
 
+	taskCtx := context.WithoutCancel(ctx) // <-
+
+	// (1) context.MergeCancel(ctx0, ctx1 context.Context) context.Context
+	// (2) task(/*give it a time to wrap up*/, taskCtx)
+
 	select {
-	case p.tasks <- func() { task(ctx) }:
+	case p.tasks <- func() { task(p.poolCtx, taskCtx) }:
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
 	}
 }
 
-func (p *Pool) Stop() error {
-	p.stop.Store(true)
+func (p *Pool) Stop(timeout time.Duration) error {
+	if !p.stop.CompareAndSwap(false, true) {
+		return nil
+	}
 
-	close(p.stopCh)
+	close(p.stopCh) // send a signal to stop
+
+	p.cancel() // <-poolCtx.Done()
+
+	doneCh := make(chan struct{})
+
+	go func() {
+		p.wg.Wait()   // hangs
+		close(doneCh) // send a signal that we are done
+	}()
+
+	select {
+	case <-time.After(timeout): // timeout
+		return errors.New("stop timeout") // ErrStopTimout
+	case <-doneCh:
+	}
 
 	return nil
 }
