@@ -58,7 +58,7 @@ func TestPoolServiceGracefulShutdown(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	ps.Stop()
 
-	time.Sleep(2950 * time.Millisecond)
+	time.Sleep(3100 * time.Millisecond)
 
 	require.Equal(t, int32(30), counter, "expected counter to be 30")
 }

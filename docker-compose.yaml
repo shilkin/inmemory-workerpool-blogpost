@@ -17,11 +17,11 @@ services:
         interval: 1s
         timeout: 1s
         retries: 30
-    memswap_limit: 50M
+    memswap_limit: 100M
     deploy:
       resources:
         limits:
-          memory: 50M
+          memory: 100M
     restart: on-failure
 
   loadgen:
@@ -32,7 +32,7 @@ services:
     depends_on:
       webserver:
         condition: service_healthy
-    command: "/app/loadgen -c 3 -i 10ms -t http://webserver:8080/create?delay=60s"
+    command: "/app/loadgen -c 3 -i 10ms -t http://webserver:8080/create?delay=10s"
     restart: always
 
   influxdb:
@@ -65,3 +65,23 @@ services:
         condition: on-failure
     ports:
       - "4040:4040"
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: [ "--config=/etc/otel-collector-config.yaml" ]
+    volumes:
+      - ./otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
