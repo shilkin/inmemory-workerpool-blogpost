@@ -12,6 +12,7 @@ import (
 
 	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/analytics"
 	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/delay"
+	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/pool"
 	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/repo"
 	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/service"
 )
@@ -23,9 +24,12 @@ func main() {
 	stopObservability := startObservability()
 	defer stopObservability()
 
+	workerPool := pool.NewPoolService(100)
+
 	userService := service.NewUserService(
 		repo.NewUserRepo(),
 		analytics.NewAnalytics(),
+		workerPool,
 	)
 
 	server := http.DefaultServeMux
