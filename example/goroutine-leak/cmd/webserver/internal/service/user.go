@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
 )
 
 // type WorkerPool interface {
@@ -23,10 +22,12 @@ type Analytics interface {
 }
 
 type UserService struct {
-	repo      UserRepository
-	analytics Analytics
-	sema      chan struct{}
-	pool      WorkerPool
+	repo       UserRepository
+	analytics  Analytics
+	sema       chan struct{}
+	pool       WorkerPool
+	barService barService
+	bazService bazService
 }
 
 func NewUserService(repo UserRepository, analytics Analytics) *UserService {
@@ -42,31 +43,67 @@ func (s *UserService) Create(ctx context.Context, name, email string) error {
 	// create user in the database
 	userID, _ := s.repo.Create(ctx, name, email)
 
-	err := s.pool.Enqueue(ctx, func(ctx context.Context) {
-		s.analytics.Send(ctx, "user created", userID)
+	err := s.pool.Enqueue(ctx, func(poolCtx, taskCtx context.Context) {
+		s.analytics.Send(taskCtx, "user created", userID)
 	})
 	if err != nil {
 		return fmt.Errorf("enqueue task: %w", err)
 	}
 
 	return nil
+}
 
-	select {
-	case s.sema <- struct{}{}: // acquire
-		defer func() { <-s.sema }() // release
-	case <-ctx.Done():
-		return nil // + log
-		// opt 0: ctx.Err() -- context cancelled / deadline exceeded
-		// opt 1: return ErrNoWorkers (+ctx.Err())
+type FooResult struct {
+	BarID int
+	BazID int
+}
+
+type serviceResult struct {
+	id  int
+	err error
+}
+
+type barService interface {
+	GetBarID(ctx context.Context, id int) (int, error)
+}
+
+type bazService interface {
+	GetBazID(ctx context.Context, id int) (int, error)
+}
+
+// GET /api/v1/foo -> json: FooResult
+func (s *UserService) Foo(ctx context.Context, fooID int) (FooResult, error) {
+	barChan := make(chan serviceResult)
+
+	err := s.pool.Enqueue(ctx, func(poolCtx, taskCtx context.Context) {
+		id, err := s.barService.GetBarID(taskCtx, fooID)
+
+		select {
+		case barChan <- serviceResult{id: id, err: err}:
+		case <-poolCtx.Done():
+			return
+		}
+
+	})
+	if err != nil {
+		return FooResult{}, fmt.Errorf("enqueue bar task: %w", err)
 	}
 
-	ctx = context.WithoutCancel(ctx)
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Microsecond)
-	defer cancel()
+	bazChan := make(chan serviceResult)
 
-	// send analytics event synchronously
-	// which may cause goroutine and memory leak
-	go s.analytics.Send(ctx, "user created", userID)
+	err = s.pool.Enqueue(ctx, func(poolCtx, taskCtx context.Context) {
+		id, err := s.bazService.GetBazID(taskCtx, fooID)
 
-	return nil
+		select {
+		case bazChan <- serviceResult{id: id, err: err}:
+		case <-poolCtx.Done():
+			return
+		}
+
+	})
+	if err != nil {
+		return FooResult{}, fmt.Errorf("enqueue baz task: %w", err)
+	}
+
+	return FooResult{}, nil
 }
