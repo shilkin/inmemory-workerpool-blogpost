@@ -72,38 +72,66 @@ type bazService interface {
 }
 
 // GET /api/v1/foo -> json: FooResult
-func (s *UserService) Foo(ctx context.Context, fooID int) (FooResult, error) {
+//
+// H/W: (3) think how to utilise mutex to simplify concurrency code: Foo1() {}
+func (s *UserService) Foo(ctx context.Context, fooID int) (*FooResult, error) {
 	barChan := make(chan serviceResult)
 
-	err := s.pool.Enqueue(ctx, func(poolCtx, taskCtx context.Context) {
-		id, err := s.barService.GetBarID(taskCtx, fooID)
+	// H/W: (1) refactor task creation in order to simplify the code
+	err := s.pool.Enqueue(ctx, func(_, _ context.Context) {
+		id, err := s.barService.GetBarID(ctx, fooID)
 
 		select {
 		case barChan <- serviceResult{id: id, err: err}:
-		case <-poolCtx.Done():
+		case <-ctx.Done():
 			return
 		}
 
 	})
 	if err != nil {
-		return FooResult{}, fmt.Errorf("enqueue bar task: %w", err)
+		return nil, fmt.Errorf("enqueue bar task: %w", err)
 	}
 
 	bazChan := make(chan serviceResult)
 
-	err = s.pool.Enqueue(ctx, func(poolCtx, taskCtx context.Context) {
-		id, err := s.bazService.GetBazID(taskCtx, fooID)
+	err = s.pool.Enqueue(ctx, func(_, _ context.Context) {
+		id, err := s.bazService.GetBazID(ctx, fooID)
 
 		select {
 		case bazChan <- serviceResult{id: id, err: err}:
-		case <-poolCtx.Done():
+		case <-ctx.Done():
 			return
 		}
 
 	})
 	if err != nil {
-		return FooResult{}, fmt.Errorf("enqueue baz task: %w", err)
+		return nil, fmt.Errorf("enqueue baz task: %w", err)
 	}
 
-	return FooResult{}, nil
+	var result FooResult
+
+	// H/W: (2) simplify waiting the results
+	select {
+	case r := <-barChan:
+		if r.err != nil {
+			return nil, fmt.Errorf("error bar task: %w", r.err)
+		}
+
+		result.BarID = r.id
+	case <-ctx.Done():
+		return nil, fmt.Errorf("waiting bar result: %w", ctx.Err())
+	}
+
+	select {
+	case r := <-bazChan:
+		if r.err != nil {
+			return nil, fmt.Errorf("error baz task: %w", r.err)
+		}
+
+		result.BazID = r.id
+	case <-ctx.Done():
+		return nil, fmt.Errorf("waiting baz result: %w", ctx.Err())
+	}
+
+	return &result, nil
 }
