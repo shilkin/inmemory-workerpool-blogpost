@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-type Task func(poolCtx, taskCtx context.Context)
-
 type Pool struct {
 	tasks  chan func()
 	stop   atomic.Bool
@@ -51,7 +49,7 @@ func NewPool(count int) *Pool {
 	return pool
 }
 
-func (p *Pool) Enqueue(ctx context.Context, task Task) error {
+func (p *Pool) Enqueue(ctx context.Context, task func(poolCtx, taskCtx context.Context)) error {
 	if p.stop.Load() {
 		return errors.New("Pool is stopping") // ErrPoolIsStopping
 	}
@@ -122,7 +120,7 @@ func (s *UserService) Create(ctx context.Context, name, email string) error {
 	// create user in the database
 	userID, _ := s.repo.Create(ctx, name, email)
 
-	_ = s.pool.Enqueue(ctx, func(ctx context.Context) {
+	_ = s.pool.Enqueue(ctx, func(_, ctx context.Context) {
 		s.analytics.Send(ctx, "user created", userID)
 	})
 
