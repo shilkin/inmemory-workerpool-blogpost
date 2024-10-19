@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"github.com/stretchr/testify/suite"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -11,42 +12,64 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-/*
-ok  	github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/internal/service	0.836s
-*/
+type UserSuite struct {
+	suite.Suite
+	ctrl          *gomock.Controller
+	repoMock      *mock.MockUserRepository
+	analyticsMock *mock.MockAnalytics
+	poolMock      *mock.MockPool
+	userService   *service.UserService
+	ctx           context.Context
+}
 
-func TestUserCreate(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish() // t.Cleanup(ctrl.Finish)
+func (s *UserSuite) SetupTest() {
+	s.ctrl = gomock.NewController(s.T())
+	s.repoMock = mock.NewMockUserRepository(s.ctrl)
+	s.analyticsMock = mock.NewMockAnalytics(s.ctrl)
+	s.poolMock = mock.NewMockPool(s.ctrl)
+	s.userService = service.NewUserService(s.repoMock, s.analyticsMock, s.poolMock)
+	s.ctx = context.Background()
+}
 
-	repoMock := mock.NewMockUserRepository(ctrl)
-	analyticsMock := mock.NewMockAnalytics(ctrl)
-	poolMock := mock.NewMockPool(ctrl)
+func (s *UserSuite) TearDownTest() {
+	s.ctrl.Finish()
+}
 
-	userService := service.NewUserService(repoMock, analyticsMock, poolMock)
+func (s *UserSuite) TestUserCreate_Success() {
+	gomock.InOrder(
+		s.repoMock.EXPECT().Create(s.ctx, "test", "test@test.test").Return("userID", nil),
+		s.poolMock.EXPECT().Enqueue(s.ctx, gomock.Any()).DoAndReturn(
+			func(ctx context.Context, task func(ctx context.Context)) error {
+				task(ctx)
+				return nil
+			},
+		),
+		s.analyticsMock.EXPECT().Send(gomock.Any(), "user created", "userID"),
+	)
 
-	ctx := context.Background()
+	err := s.userService.Create(s.ctx, "test", "test@test.test")
+	require.NoError(s.T(), err)
+}
 
-	t.Run("user created succesfully", func(t *testing.T) {
-		gomock.InOrder(
-			poolMock.EXPECT().Enqueue(ctx, gomock.Any()).Return(nil),
-			repoMock.EXPECT().Create(ctx, "test", "test@test.test").Return("userID", nil),
-		)
+func (s *UserSuite) TestUserCreate_TaskEnqueueFailed() {
+	gomock.InOrder(
+		s.repoMock.EXPECT().Create(s.ctx, "test", "test@test.test").Return("userID", nil),
+		s.poolMock.EXPECT().Enqueue(s.ctx, gomock.Any()).Return(errors.New("enqueue error")),
+	)
 
-		err := userService.Create(ctx, "test", "test@test.test")
-		require.NoError(t, err)
-	})
+	err := s.userService.Create(s.ctx, "test", "test@test.test")
+	require.Error(s.T(), err)
+}
 
-	t.Run("task enqueueing failed", func(t *testing.T) {
-		repoMock.EXPECT().Create(ctx, "test", "test@test.test").Return("userID", nil)
-		poolMock.EXPECT().Enqueue(ctx, gomock.Any()).Return(errors.New("enqueue error"))
-		err := userService.Create(ctx, "test", "test@test.test")
-		require.Error(t, err)
-	})
+func (s *UserSuite) TestUserCreate_RepositorySavingFailed() {
+	gomock.InOrder(
+		s.repoMock.EXPECT().Create(s.ctx, "test", "test@test.test").Return("userID", errors.New("create error")),
+	)
 
-	t.Run("repository saving failed", func(t *testing.T) {
-		repoMock.EXPECT().Create(ctx, "test", "test@test.test").Return("userID", errors.New("create error"))
-		err := userService.Create(ctx, "test", "test@test.test")
-		require.Error(t, err)
-	})
+	err := s.userService.Create(s.ctx, "test", "test@test.test")
+	require.Error(s.T(), err)
+}
+
+func TestUserSuite(t *testing.T) {
+	suite.Run(t, new(UserSuite))
 }

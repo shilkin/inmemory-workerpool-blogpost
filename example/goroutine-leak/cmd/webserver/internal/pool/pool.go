@@ -49,12 +49,13 @@ var (
 			Help: "Current size of the task queue.",
 		},
 	)
+
+	registerMetricsOnce sync.Once
 )
 
 // 1. Graceful shutdown
 // 2. *Pass singal about pool stopping to task handlers
 // 3. General purpose pool
-type Task func(ctx context.Context) // TODO: think how to propagate pool stop signal
 
 // TODO: Homework
 //  1. prometheus metrics
@@ -74,13 +75,15 @@ type PoolService struct {
 }
 
 type TaskMessage struct {
-	task Task
+	task func(ctx context.Context)
 	ctx  context.Context
 	inQ  time.Time
 }
 
 func NewPoolService(maxWorkers int) *PoolService {
-	prometheus.MustRegister(successfulTasks, failedTasks, taskDuration, enqueueTime, queueSize)
+	registerMetricsOnce.Do(func() {
+		prometheus.MustRegister(successfulTasks, failedTasks, taskDuration, enqueueTime, queueSize)
+	})
 
 	ps := PoolService{
 		ch:    make(chan TaskMessage, 10000),
@@ -123,7 +126,7 @@ func NewPoolService(maxWorkers int) *PoolService {
 	return &ps
 }
 
-func (ps *PoolService) Enqueue(ctx context.Context, task Task) error {
+func (ps *PoolService) Enqueue(ctx context.Context, task func(ctx context.Context)) error {
 	if ps.running.Load() != true {
 		return errors.New("Worker are stopped")
 	}
@@ -168,7 +171,7 @@ func (ps *PoolService) Stop() error {
 
 }
 
-func recoverable(task Task) Task {
+func recoverable(task func(ctx context.Context)) func(ctx context.Context) {
 	return func(ctx context.Context) {
 		// TODO: how defer and recover work
 		defer func() {
