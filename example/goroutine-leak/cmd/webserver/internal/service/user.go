@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"sync"
 )
 
 // type WorkerPool interface {
@@ -69,6 +71,55 @@ type barService interface {
 
 type bazService interface {
 	GetBazID(ctx context.Context, id int) (int, error)
+}
+
+// H/W:
+//
+//	(1) errgroup.Group <-
+//	(2) is it possible use pool and cancel all tasks if at least one fails?
+//	(3) design/write untit tests for UserService
+//	(4) explore httptest package and try to come up with "functional" tests through http handlers
+func (s *UserService) Foo1(ctx context.Context, fooID int) (*FooResult, error) {
+	var wg sync.WaitGroup
+
+	var barID int
+	var bazID int
+
+	var barErr error
+	var bazErr error
+
+	wg.Add(1)
+	// go func()
+	err := s.pool.Enqueue(ctx, func(_, _ context.Context) {
+		defer wg.Done()
+
+		barID, barErr = s.barService.GetBarID(ctx, fooID)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("enqueue bar task: %w", err)
+	}
+
+	wg.Add(1)
+	// go func()
+	err = s.pool.Enqueue(ctx, func(_, _ context.Context) {
+		defer wg.Done()
+
+		bazID, bazErr = s.bazService.GetBazID(ctx, fooID)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("enqueue baz task: %w", err)
+	}
+
+	wg.Wait() // blocks
+
+	if err := errors.Join(barErr, bazErr); err != nil {
+		return nil, fmt.Errorf("tasks have error(s): %w", err)
+	}
+
+	return &FooResult{
+		BarID: barID,
+		BazID: bazID,
+	}, nil
 }
 
 // GET /api/v1/foo -> json: FooResult
