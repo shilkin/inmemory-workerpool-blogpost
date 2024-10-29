@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	"sync"
+	"fmt"
 )
 
 type FooResponse struct {
@@ -38,13 +38,41 @@ func NewFooService(pool pool, bar barClient, baz bazClient) *Foo {
 	}
 }
 
+type MyFuncType func(ctx context.Context, id int) (barID int, err error)
+
+func (f *Foo) someFunc(con context.Context, stopCon context.Context, cancelFunc context.CancelFunc, getFunc MyFuncType, id int, result *int, err *error) chan struct{} {
+	finish := make(chan struct{})
+	_ = f.pool.Enqueue(con, func(_, _ context.Context) {
+
+		defer func() {
+			finish <- struct{}{}
+		}()
+
+		res, respErr := getFunc(con, id)
+		if respErr != nil {
+			err = &respErr
+			cancelFunc()
+			return
+		}
+
+		result = &res
+	})
+
+	select {
+	case <-finish:
+		return finish
+	case <-stopCon.Done():
+		return finish
+	}
+}
+
 // H/W:
 // (1) implement Foo with channels <-
 // (2) stop all tasks when at least one task fails
 
 // GET /api/v1/foo -> json FooResponse
 func (f *Foo) Foo(ctx context.Context, id int) (*FooResponse, error) {
-	wg := sync.WaitGroup{}
+	defContext, cancel := context.WithCancel(ctx)
 
 	var barID int
 	var bazID int
@@ -52,29 +80,10 @@ func (f *Foo) Foo(ctx context.Context, id int) (*FooResponse, error) {
 	var errorBar error
 	var errorBaz error
 
-	wg.Add(2)
-
-	// go func() {}
-	_ = f.pool.Enqueue(ctx, func(_, _ context.Context) {
-		defer wg.Done()
-
-		barID, errorBar = f.bar.GetBarID(ctx, id)
-		if errorBar != nil {
-			return
-		}
-	})
-
-	// go func() {}
-	_ = f.pool.Enqueue(ctx, func(_, _ context.Context) {
-		defer wg.Done()
-
-		bazID, errorBaz = f.baz.GetBazID(ctx, id)
-		if errorBaz != nil {
-			return
-		}
-	})
-
-	wg.Wait() // block
+	a := f.someFunc(ctx, defContext, cancel, f.bar.GetBarID, id, &barID, &errorBar)
+	b := f.someFunc(ctx, defContext, cancel, f.baz.GetBazID, id, &bazID, &errorBaz)
+	d, e := <-a, <-b
+	fmt.Print(d, e)
 
 	if errorBar != nil || errorBaz != nil {
 		return nil, errors.Join(errorBar, errorBaz)

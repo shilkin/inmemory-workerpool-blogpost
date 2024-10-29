@@ -49,6 +49,21 @@ func NewPool(count int) *Pool {
 	return pool
 }
 
+func mergeContext(ctx1, ctx2 context.Context) context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		select {
+		case <-ctx1.Done():
+			cancel()
+		case <-ctx2.Done():
+			cancel()
+		}
+	}()
+
+	return ctx
+}
+
 func (p *Pool) Enqueue(ctx context.Context, task func(poolCtx, taskCtx context.Context)) error {
 	if p.stop.Load() {
 		return errors.New("Pool is stopping") // ErrPoolIsStopping
