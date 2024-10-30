@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+//go:generate mockgen -source=$GOFILE -destination=internal/mock/$GOFILE
+
 type Pool struct {
 	tasks  chan func()
 	stop   atomic.Bool
@@ -49,6 +51,21 @@ func NewPool(count int) *Pool {
 	return pool
 }
 
+func mergeContext(poolCtx, taskCtx context.Context) context.Context {
+	taskCtx, cancel := context.WithCancel(taskCtx)
+
+	go func() {
+		select {
+		case <-poolCtx.Done():
+			cancel()
+		case <-taskCtx.Done():
+			cancel()
+		}
+	}()
+
+	return taskCtx
+}
+
 func (p *Pool) Enqueue(ctx context.Context, task func(poolCtx, taskCtx context.Context)) error {
 	if p.stop.Load() {
 		return errors.New("Pool is stopping") // ErrPoolIsStopping
@@ -56,8 +73,7 @@ func (p *Pool) Enqueue(ctx context.Context, task func(poolCtx, taskCtx context.C
 
 	taskCtx := context.WithoutCancel(ctx) // <-
 
-	// (1) context.MergeCancel(ctx0, ctx1 context.Context) context.Context
-	// (2) task(/*give it a time to wrap up*/, taskCtx)
+	// (2) task(/*give it a time to wrap up*/, taskCtx) // <-
 
 	select {
 	case p.tasks <- func() { task(p.poolCtx, taskCtx) }:

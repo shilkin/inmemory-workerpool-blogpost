@@ -4,6 +4,7 @@ go 1.22.4
 
 require (
 	github.com/daixiang0/gci v0.13.4
+	github.com/golang/mock v1.5.0
 	github.com/golangci/golangci-lint v1.59.1
 	github.com/google/uuid v1.6.0
 	github.com/grafana/pyroscope-go v1.1.1
