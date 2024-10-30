@@ -66,10 +66,6 @@ func (f *Foo) someFunc(con context.Context, stopCon context.Context, cancelFunc 
 	}
 }
 
-// H/W:
-// (1) implement Foo with channels <-
-// (2) stop all tasks when at least one task fails
-
 // GET /api/v1/foo -> json FooResponse
 func (f *Foo) Foo(ctx context.Context, id int) (*FooResponse, error) {
 	defContext, cancel := context.WithCancel(ctx)
