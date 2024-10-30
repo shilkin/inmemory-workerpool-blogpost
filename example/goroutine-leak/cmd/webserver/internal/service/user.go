@@ -15,6 +15,8 @@ import (
 // 	// Stop(/*ctx?*/)
 // }
 
+//go:generate mockgen -source=$GOFILE -destination=internal/mock/$GOFILE
+
 type UserRepository interface {
 	Create(ctx context.Context, name, email string) (string, error)
 }
@@ -27,7 +29,7 @@ type UserService struct {
 	repo       UserRepository
 	analytics  Analytics
 	sema       chan struct{}
-	pool       WorkerPool
+	pool       *WorkerPool
 	barService barService
 	bazService bazService
 }
@@ -37,15 +39,19 @@ func NewUserService(repo UserRepository, analytics Analytics) *UserService {
 		repo:      repo,
 		analytics: analytics,
 		sema:      make(chan struct{}, 100),
+		pool:      NewWorkerPool(100),
 	}
 }
 
 // https://pkg.go.dev/golang.org/x/sync/semaphore
 func (s *UserService) Create(ctx context.Context, name, email string) error {
 	// create user in the database
-	userID, _ := s.repo.Create(ctx, name, email)
+	userID, err := s.repo.Create(ctx, name, email)
+	if err != nil {
+		return fmt.Errorf("repo create: %w", err)
+	}
 
-	err := s.pool.Enqueue(ctx, func(poolCtx, taskCtx context.Context) {
+	err = s.pool.Enqueue(ctx, func(poolCtx, taskCtx context.Context) {
 		s.analytics.Send(taskCtx, "user created", userID)
 	})
 	if err != nil {
