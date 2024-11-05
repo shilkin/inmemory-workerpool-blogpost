@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 //go:generate mockgen -source=$GOFILE -destination=internal/mock/$GOFILE
 
-type Pool struct {
+type WorkerPool struct {
 	tasks  chan func()
 	stop   atomic.Bool
 	stopCh chan struct{}
@@ -20,10 +21,10 @@ type Pool struct {
 	cancel  context.CancelFunc
 }
 
-func NewPool(count int) *Pool {
+func NewPool(count int) *WorkerPool {
 	poolCtx, cancel := context.WithCancel(context.Background())
 
-	pool := &Pool{
+	pool := &WorkerPool{
 		tasks:   make(chan func(), count),
 		stop:    atomic.Bool{},
 		stopCh:  make(chan struct{}),
@@ -66,7 +67,7 @@ func mergeContext(poolCtx, taskCtx context.Context) context.Context {
 	return taskCtx
 }
 
-func (p *Pool) Enqueue(ctx context.Context, task func(poolCtx, taskCtx context.Context)) error {
+func (p *WorkerPool) Enqueue(ctx context.Context, task func(poolCtx, taskCtx context.Context)) error {
 	if p.stop.Load() {
 		return errors.New("Pool is stopping") // ErrPoolIsStopping
 	}
@@ -83,7 +84,7 @@ func (p *Pool) Enqueue(ctx context.Context, task func(poolCtx, taskCtx context.C
 	}
 }
 
-func (p *Pool) Stop(timeout time.Duration) error {
+func (p *WorkerPool) Stop(timeout time.Duration) error {
 	if !p.stop.CompareAndSwap(false, true) {
 		return nil
 	}
@@ -121,24 +122,34 @@ type Analytics interface {
 type UserService struct {
 	repo      UserRepository
 	analytics Analytics
-	pool      *Pool
+	pool      Pool
 }
 
-func NewUserService(repo UserRepository, analytics Analytics) *UserService {
+type Pool interface {
+	Enqueue(ctx context.Context, task func(poolCtx, taskCtx context.Context)) error
+}
+
+func NewUserService(repo UserRepository, analytics Analytics, pool Pool) *UserService {
 	return &UserService{
 		repo:      repo,
 		analytics: analytics,
-		pool:      NewPool(100),
+		pool:      pool,
 	}
 }
 
 func (s *UserService) Create(ctx context.Context, name, email string) error {
 	// create user in the database
-	userID, _ := s.repo.Create(ctx, name, email)
+	userID, err := s.repo.Create(ctx, name, email)
+	if err != nil {
+		return fmt.Errorf("repo create: %w", err)
+	}
 
-	_ = s.pool.Enqueue(ctx, func(_, ctx context.Context) {
+	err = s.pool.Enqueue(ctx, func(_, ctx context.Context) {
 		s.analytics.Send(ctx, "user created", userID)
 	})
+	if err != nil {
+		return fmt.Errorf("pool enqueue: %w", err)
+	}
 
 	return nil
 }

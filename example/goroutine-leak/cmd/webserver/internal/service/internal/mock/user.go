@@ -88,3 +88,40 @@ func (mr *MockAnalyticsMockRecorder) Send(ctx, message interface{}, args ...inte
 	varargs := append([]interface{}{ctx, message}, args...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockAnalytics)(nil).Send), varargs...)
 }
+
+// MockPool is a mock of Pool interface.
+type MockPool struct {
+	ctrl     *gomock.Controller
+	recorder *MockPoolMockRecorder
+}
+
+// MockPoolMockRecorder is the mock recorder for MockPool.
+type MockPoolMockRecorder struct {
+	mock *MockPool
+}
+
+// NewMockPool creates a new mock instance.
+func NewMockPool(ctrl *gomock.Controller) *MockPool {
+	mock := &MockPool{ctrl: ctrl}
+	mock.recorder = &MockPoolMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPool) EXPECT() *MockPoolMockRecorder {
+	return m.recorder
+}
+
+// Enqueue mocks base method.
+func (m *MockPool) Enqueue(ctx context.Context, task func(context.Context, context.Context)) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Enqueue", ctx, task)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Enqueue indicates an expected call of Enqueue.
+func (mr *MockPoolMockRecorder) Enqueue(ctx, task interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockPool)(nil).Enqueue), ctx, task)
+}
