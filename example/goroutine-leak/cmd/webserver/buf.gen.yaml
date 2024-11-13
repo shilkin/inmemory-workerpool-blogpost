@@ -1,0 +1,16 @@
+version: v2
+clean: true
+plugins:
+  - local: protoc-gen-go
+    opt:
+      - paths=source_relative
+    out: gen
+  - local: protoc-gen-connect-go
+    opt:
+      - paths=source_relative
+    out: gen
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/gen

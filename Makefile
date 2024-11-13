@@ -48,3 +48,13 @@ example-restart: example-stop example-start ## Restart example of goroutine leak
 help:
 	@echo "$$(grep -hE '^\S+:.*##' $(MAKEFILE_LIST) | sed -e 's/:.*##\s*/:/' | column -c2 -t -s :)"
 .PHONY: help
+
+# --go_opt=Mproto/notification/v3/models=./gen/go/proto/notification/v3/models <- go_package
+# find proto -type f -name '*.proto' -exec protoc -I=$PWD -I$PWD/proto --go_out=$PWD/gen/go --go_opt=paths=source_relative --go_opt=Mproto/notification/v3/models=./gen/go/proto/notification/v3/models {} \;
+twirp:
+	protoc --go_out=. \
+	--go_opt=Mexample/goroutine-leak/cmd/webserver/proto/user/v1/user.proto=example/goroutine-leak/cmd/webserver/gen/twirp/user/v1 \
+	--twirp_out=. ./example/goroutine-leak/cmd/webserver/proto/user/v1/user.proto
+
+connect:
+	protoc -I . --go_out=. --connect-go_out=. example/goroutine-leak/cmd/webserver/adapters/connect/connect.proto

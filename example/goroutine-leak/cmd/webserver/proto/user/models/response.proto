@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package user.models;
+
+option go_package = "user/models";
+
+message CreateResp {
+  bool error = 1;
+  string msg = 2;
+}

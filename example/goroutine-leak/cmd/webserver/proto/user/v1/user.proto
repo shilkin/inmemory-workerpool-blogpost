@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package user.v1;
+
+option go_package = "user/v1";
+
+import "user/models/request.proto";
+import "user/models/response.proto";
+
+service UserService {
+  rpc CreateUser(user.models.CreateReq) returns (user.models.CreateResp);
+}

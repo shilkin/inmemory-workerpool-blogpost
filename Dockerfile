@@ -16,6 +16,8 @@ RUN go build -o loadgen ./example/goroutine-leak/cmd/loadgen/main.go
 CMD /app/webserver
 
 EXPOSE 8080
+EXPOSE 8081
+EXPOSE 8082
 
 # Load Generator AB
 FROM alpine:3.20.1 AS ab

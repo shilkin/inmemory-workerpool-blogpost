@@ -2,6 +2,10 @@ package main
 
 import (
 	"fmt"
+	user_v1 "github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/adapters/user/v1"
+	"github.com/shilkin/inmemory-workerpool-blogpost/example/goroutine-leak/cmd/webserver/gen/user/v1/userv1connect"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
@@ -31,6 +35,23 @@ func main() {
 		analytics.NewAnalytics(),
 		workerPool,
 	)
+
+	userConnectHandler := user_v1.NewUserConnectHandler(userService)
+	connectPathPrefix, connectHandler := userv1connect.NewUserServiceHandler(userConnectHandler)
+	go func() {
+		httpMux := http.NewServeMux()
+		httpMux.Handle(connectPathPrefix, connectHandler)
+
+		server := &http.Server{
+			Addr:    ":8082",
+			Handler: h2c.NewHandler(httpMux, &http2.Server{}),
+		}
+
+		if err := server.ListenAndServe(); err != nil {
+			panic(err)
+		}
+
+	}()
 
 	server := http.DefaultServeMux
 

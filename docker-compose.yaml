@@ -9,6 +9,8 @@ services:
       PYROSCOPE_HOST: "http://pyroscope:4040"
     ports:
       - "8080:8080"
+      - "8081:8081"
+      - "8082:8082"
     depends_on:
       influxdb:
         condition: service_healthy
